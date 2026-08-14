@@ -66,16 +66,43 @@ func VerifySignature(payload []byte, headers HeaderGetter, secret string, tolera
 		return nil, err
 	}
 
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(id + "." + timestamp + "."))
-	mac.Write(payload)
-	expected := mac.Sum(nil)
+	expected := signatureMAC(id, timestamp, payload, secret)
 
 	provided, err := hex.DecodeString(strings.TrimPrefix(signature, signaturePrefix))
 	if err != nil || !hmac.Equal(provided, expected) {
 		return nil, fmt.Errorf("%w: signature mismatch", ErrSignatureVerification)
 	}
 	return payload, nil
+}
+
+// Sign returns the X-Webhook-Sig header value for a payload, as the platform would send it.
+//
+// This is the counterpart to VerifySignature, and it exists so that anything producing a
+// webhook delivery — a test fixture, a local replay tool, a fake endpoint in your own test
+// suite — computes the signature the same way this package verifies it, instead of
+// reimplementing the construction and drifting from it.
+//
+// The id and timestamp must be the values sent as X-Webhook-Id and X-Webhook-Ts, since both
+// are part of the signed input. The result carries the "sha256=" prefix and is ready to use
+// as the header value:
+//
+//	sig := mailkube.Sign(id, timestamp, body, secret)
+//	req.Header.Set("X-Webhook-Sig", sig)
+//
+// Freshness is not this function's concern: it signs the timestamp it is given, so a caller
+// replaying an old capture can reproduce the original signature exactly.
+func Sign(id, timestamp string, payload []byte, secret string) string {
+	return signaturePrefix + hex.EncodeToString(signatureMAC(id, timestamp, payload, secret))
+}
+
+// signatureMAC computes the raw HMAC-SHA256 over the signed input the contract defines:
+// "{id}.{timestamp}." followed by the raw body. One implementation, so signing and verifying
+// cannot disagree.
+func signatureMAC(id, timestamp string, payload []byte, secret string) []byte {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(id + "." + timestamp + "."))
+	mac.Write(payload)
+	return mac.Sum(nil)
 }
 
 // Verify verifies a webhook and returns the parsed event.

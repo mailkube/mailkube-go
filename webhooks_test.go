@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -137,5 +138,62 @@ func TestACustomToleranceIsHonoured(t *testing.T) {
 
 	if _, err := mailkube.VerifySignature([]byte(body), headers, secret, time.Hour); err != nil {
 		t.Errorf("a one-hour tolerance should accept a ten-minute-old webhook: %v", err)
+	}
+}
+
+func TestSignProducesASignatureVerifySignatureAccepts(t *testing.T) {
+	// The property that matters: the two functions cannot drift, because a delivery this
+	// package signs must be one it verifies. Anything else makes Sign a second implementation
+	// of the contract rather than the same one.
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	payload := []byte(body)
+
+	headers := http.Header{}
+	headers.Set("X-Webhook-Id", "wh_1")
+	headers.Set("X-Webhook-Ts", timestamp)
+	headers.Set("X-Webhook-Sig", mailkube.Sign("wh_1", timestamp, payload, secret))
+
+	if _, err := mailkube.VerifySignature(payload, headers, secret, 0); err != nil {
+		t.Fatalf("a signature this package produced was rejected by its own verifier: %v", err)
+	}
+}
+
+func TestSignCarriesTheAlgorithmPrefix(t *testing.T) {
+	got := mailkube.Sign("wh_1", "2026-08-14T09:32:00Z", []byte(body), secret)
+	if !strings.HasPrefix(got, "sha256=") {
+		t.Errorf("Sign() = %q, want the sha256= prefix the header carries", got)
+	}
+	if _, err := hex.DecodeString(strings.TrimPrefix(got, "sha256=")); err != nil {
+		t.Errorf("Sign() digest is not hex: %v", err)
+	}
+}
+
+func TestSignBindsTheIDTheTimestampAndTheBody(t *testing.T) {
+	// Each component is part of the signed input, so changing any one alone must change the
+	// signature — otherwise a delivery could be replayed with a different id or timestamp.
+	const (
+		id = "wh_1"
+		ts = "2026-08-14T09:32:00Z"
+	)
+	base := mailkube.Sign(id, ts, []byte(body), secret)
+
+	for name, got := range map[string]string{
+		"id":        mailkube.Sign("wh_2", ts, []byte(body), secret),
+		"timestamp": mailkube.Sign(id, "2026-08-14T09:33:00Z", []byte(body), secret),
+		"body":      mailkube.Sign(id, ts, []byte(`{"type":"email.bounced"}`), secret),
+		"secret":    mailkube.Sign(id, ts, []byte(body), "whsec_other"),
+	} {
+		if got == base {
+			t.Errorf("changing the %s left the signature unchanged", name)
+		}
+	}
+}
+
+func TestSignIsIndependentOfFreshness(t *testing.T) {
+	// Signing an old timestamp has to work: replaying a captured delivery is the main reason
+	// this function exists, and it must reproduce the original signature exactly.
+	old := time.Now().Add(-72 * time.Hour).UTC().Format(time.RFC3339)
+	if got := mailkube.Sign("wh_1", old, []byte(body), secret); got == "" {
+		t.Error("Sign refused an old timestamp")
 	}
 }

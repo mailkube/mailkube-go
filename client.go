@@ -43,6 +43,29 @@ func WithTimeout(timeout time.Duration) Option {
 	return func(c *Client) { c.timeout = timeout }
 }
 
+// WithUserAgentSuffix appends a token to the User-Agent this SDK sends.
+//
+// It is for software that wraps this SDK — a CLI, an internal service, a framework
+// integration — so a request can be attributed to the tool the user actually ran while still
+// identifying the SDK underneath. The contract's "mailkube-go/<version>" stays the leading
+// token; the suffix is appended after a space:
+//
+//	mailkube.New(mailkube.WithUserAgentSuffix("mailkube-cli/1.0.0"))
+//	// User-Agent: mailkube-go/1.1.0 mailkube-cli/1.0.0
+//
+// Give it the conventional "name/version" form. Surrounding whitespace is trimmed and a value
+// containing a newline is ignored rather than sanitized, since a header value that could be
+// split is not a value this package will send at all.
+func WithUserAgentSuffix(suffix string) Option {
+	return func(c *Client) {
+		suffix = strings.TrimSpace(suffix)
+		if suffix == "" || strings.ContainsAny(suffix, "\r\n") {
+			return
+		}
+		c.userAgentSuffix = suffix
+	}
+}
+
 // WithHTTPClient injects the *http.Client used for every request.
 //
 // This is the dependency-inversion seam: pass a client configured with your own transport,
@@ -76,11 +99,12 @@ type Client struct {
 	// ScheduledEmails is the scheduled-emails namespace, including its batch operations.
 	ScheduledEmails *ScheduledEmailsService
 
-	apiKey     string
-	baseURL    string
-	timeout    time.Duration
-	httpClient *http.Client
-	logger     *slog.Logger
+	apiKey          string
+	baseURL         string
+	timeout         time.Duration
+	httpClient      *http.Client
+	logger          *slog.Logger
+	userAgentSuffix string
 }
 
 // New creates a client, resolving configuration from the options then the environment.
@@ -131,9 +155,20 @@ func refuseRedirect(req *http.Request, _ []*http.Request) error {
 func (c *Client) defaultHeaders() map[string]string {
 	return map[string]string{
 		"Authorization": "Bearer " + c.apiKey,
-		"User-Agent":    "mailkube-go/" + Version(),
+		"User-Agent":    c.userAgent(),
 		"Accept":        "application/json",
 	}
+}
+
+// userAgent returns the contract's "mailkube-go/<version>" token, plus any suffix a wrapping
+// tool registered with WithUserAgentSuffix. The SDK token always leads, so attribution of the
+// SDK itself never depends on what the wrapper chose to call itself.
+func (c *Client) userAgent() string {
+	agent := "mailkube-go/" + Version()
+	if c.userAgentSuffix != "" {
+		agent += " " + c.userAgentSuffix
+	}
+	return agent
 }
 
 // buildURL joins a relative path onto the base URL, refusing any absolute URL off its origin.

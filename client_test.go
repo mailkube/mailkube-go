@@ -492,3 +492,104 @@ func TestTheClientIsSilentUnlessAskedToLog(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 }
+
+func TestAUserAgentSuffixIsAppendedAfterTheSDKToken(t *testing.T) {
+	// A wrapping tool (a CLI, an internal service) needs its own attribution without hiding
+	// which SDK made the call, so the contract's token has to stay in front.
+	seen := &capture{}
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		seen.req = r
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(`{"id":"abc123"}`)),
+			Header:     http.Header{},
+		}, nil
+	})}
+
+	client, err := mailkube.New(
+		mailkube.WithAPIKey("mk_test"),
+		mailkube.WithHTTPClient(httpClient),
+		mailkube.WithUserAgentSuffix("mailkube-cli/1.0.0"),
+	)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := client.Emails.Send(context.Background(), minimal()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	got := seen.req.Header.Get("User-Agent")
+	if !strings.HasPrefix(got, "mailkube-go/") {
+		t.Errorf("the SDK token must lead: User-Agent = %q", got)
+	}
+	if !strings.HasSuffix(got, " mailkube-cli/1.0.0") {
+		t.Errorf("suffix not appended: User-Agent = %q", got)
+	}
+}
+
+func TestAnUnusableUserAgentSuffixLeavesTheHeaderUntouched(t *testing.T) {
+	// A blank suffix is a no-op, and one carrying CR/LF is dropped rather than cleaned: a
+	// header value that could split the request is not a value worth repairing.
+	for name, suffix := range map[string]string{
+		"empty":    "",
+		"blank":    "   ",
+		"newline":  "cli/1.0\ninjected: yes",
+		"carriage": "cli/1.0\rinjected: yes",
+	} {
+		t.Run(name, func(t *testing.T) {
+			seen := &capture{}
+			httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				seen.req = r
+				return &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(strings.NewReader(`{"id":"abc123"}`)),
+					Header:     http.Header{},
+				}, nil
+			})}
+
+			client, err := mailkube.New(
+				mailkube.WithAPIKey("mk_test"),
+				mailkube.WithHTTPClient(httpClient),
+				mailkube.WithUserAgentSuffix(suffix),
+			)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			if _, err := client.Emails.Send(context.Background(), minimal()); err != nil {
+				t.Fatalf("Send: %v", err)
+			}
+
+			if got := seen.req.Header.Get("User-Agent"); got != "mailkube-go/"+mailkube.Version() {
+				t.Errorf("User-Agent = %q, want the bare SDK token", got)
+			}
+		})
+	}
+}
+
+func TestASurroundingSpaceInAUserAgentSuffixIsTrimmed(t *testing.T) {
+	seen := &capture{}
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		seen.req = r
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(strings.NewReader(`{"id":"abc123"}`)),
+			Header:     http.Header{},
+		}, nil
+	})}
+
+	client, err := mailkube.New(
+		mailkube.WithAPIKey("mk_test"),
+		mailkube.WithHTTPClient(httpClient),
+		mailkube.WithUserAgentSuffix("  cli/2.0  "),
+	)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := client.Emails.Send(context.Background(), minimal()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	if got := seen.req.Header.Get("User-Agent"); got != "mailkube-go/"+mailkube.Version()+" cli/2.0" {
+		t.Errorf("User-Agent = %q", got)
+	}
+}
