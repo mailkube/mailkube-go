@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/mailkube/mailkube-go/actions/workflows/ci.yml/badge.svg)](https://github.com/mailkube/mailkube-go/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mailkube/mailkube-go.svg)](https://pkg.go.dev/github.com/mailkube/mailkube-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mailkube/mailkube-go)](https://goreportcard.com/report/github.com/mailkube/mailkube-go)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-purple.svg)](CODE_OF_CONDUCT.md)
 
