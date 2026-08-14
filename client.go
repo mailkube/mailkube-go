@@ -173,19 +173,36 @@ func Version() string { return version() }
 // of the dependency list off the request path.
 var version = sync.OnceValue(readVersion)
 
+// fallbackVersion is reported when the build records no released version for this module.
+const fallbackVersion = "0.0.0"
+
 // readVersion scans the build info for this module's recorded version.
 func readVersion() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return "0.0.0"
+		return fallbackVersion
 	}
 	for _, dep := range info.Deps {
-		if dep.Path == modulePath && dep.Version != "" {
-			return strings.TrimPrefix(dep.Version, "v")
+		if trimmed, ok := releaseVersion(dep.Path, dep.Version); ok {
+			return trimmed
 		}
 	}
-	if info.Main.Path == modulePath && info.Main.Version != "" {
-		return strings.TrimPrefix(info.Main.Version, "v")
+	if trimmed, ok := releaseVersion(info.Main.Path, info.Main.Version); ok {
+		return trimmed
 	}
-	return "0.0.0"
+	return fallbackVersion
+}
+
+// releaseVersion reports the bare version for a build-info entry naming this module.
+//
+// Two things have to be stripped, and neither is cosmetic. The recorded version is the git tag and
+// tagFormat is `v${version}`, so the leading `v` has to go or the User-Agent reads
+// `mailkube-go/v1.0.0` instead of the contract's `mailkube-<lang>/<version>`. And a build from the
+// module's own tree records the literal `(devel)` rather than a tag, which is not a version at all;
+// only a `vX.Y.Z` string is accepted, so anything else falls through to fallbackVersion.
+func releaseVersion(path, version string) (string, bool) {
+	if path != modulePath || !strings.HasPrefix(version, "v") {
+		return "", false
+	}
+	return strings.TrimPrefix(version, "v"), true
 }

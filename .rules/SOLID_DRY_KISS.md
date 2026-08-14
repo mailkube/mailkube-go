@@ -15,9 +15,9 @@ thresholds and how to satisfy each gate locally *before* pushing.
 | **Strict analysis** | no `staticcheck`/`govet`/`errcheck` findings | golangci-lint `standard` set (the `test` CI job) |
 | **Formatting** | gofumpt-clean | `gofumpt -l .` (the `test` CI job) |
 
-> **Coverage is line/statement only.** Go's tooling has no reliable branch-coverage metric, so this is
-> a documented deviation from the python/node templates (which gate line **and** branch at 90%). Keep
-> tests exercising every meaningful path anyway — the number is a floor, not a target.
+> **Coverage is line/statement only.** Go's tooling has no reliable branch-coverage metric, so there
+> is nothing further to gate on. Keep tests exercising every meaningful path anyway — the number is a
+> floor, not a target.
 
 ## Run the gates locally
 

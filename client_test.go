@@ -1,6 +1,7 @@
 package mailkube_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -240,6 +241,36 @@ func TestRetryAfterAndRequestIDAreReadOffTheHeaders(t *testing.T) {
 	}
 	if apiErr.ErrorName != mailkube.ErrorNameRateLimitExceeded {
 		t.Errorf("ErrorName = %q", apiErr.ErrorName)
+	}
+}
+
+// TestTheRequestIDIsReadWhateverCasingTheServerSent pins the case-insensitive header lookup.
+//
+// HTTP header names are case-insensitive and the gateway is free to send `x-request-id`. The
+// response is parsed off a raw wire buffer rather than assembled with http.Header.Set, because
+// Set canonicalizes the name and would hide a lookup that only matched one spelling.
+func TestTheRequestIDIsReadWhateverCasingTheServerSent(t *testing.T) {
+	const wire = "HTTP/1.1 403 Forbidden\r\n" +
+		"Content-Type: application/json\r\n" +
+		"x-request-id: req_lowercase\r\n" +
+		"\r\n" +
+		`{"name":"invalid_api_key","message":"nope"}`
+
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return http.ReadResponse(bufio.NewReader(strings.NewReader(wire)), r)
+	})}
+	client, err := mailkube.New(mailkube.WithAPIKey("mk_test"), mailkube.WithHTTPClient(httpClient))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = client.Emails.Send(context.Background(), minimal())
+	var apiErr *mailkube.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("err = %v, want an *APIError", err)
+	}
+	if apiErr.RequestID != "req_lowercase" {
+		t.Errorf("RequestID = %q, want the id read off the lowercased header", apiErr.RequestID)
 	}
 }
 

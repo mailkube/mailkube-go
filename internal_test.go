@@ -163,6 +163,28 @@ func TestVersionIsNeverEmpty(t *testing.T) {
 	}
 }
 
+func TestReleaseVersionStripsTheTagPrefixAndRejectsNonReleases(t *testing.T) {
+	cases := []struct {
+		path, version, want string
+		ok                  bool
+	}{
+		{modulePath, "v1.4.0", "1.4.0", true},
+		{modulePath, "v1.0.0-rc.1", "1.0.0-rc.1", true},
+		// A build from this module's own tree records `(devel)`, not a tag. Accepting it would
+		// put `mailkube-go/(devel)` on the wire.
+		{modulePath, "(devel)", "", false},
+		{modulePath, "", "", false},
+		{"github.com/other/module", "v1.0.0", "", false},
+	}
+	for _, tc := range cases {
+		got, ok := releaseVersion(tc.path, tc.version)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("releaseVersion(%q, %q) = (%q, %v), want (%q, %v)",
+				tc.path, tc.version, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
 // --- logging seams -----------------------------------------------------------------------
 
 func TestResolveLoggerPrefersTheExplicitLogger(t *testing.T) {

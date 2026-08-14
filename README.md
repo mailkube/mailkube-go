@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/mailkube/mailkube-go/actions/workflows/ci.yml/badge.svg)](https://github.com/mailkube/mailkube-go/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mailkube/mailkube-go.svg)](https://pkg.go.dev/github.com/mailkube/mailkube-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mailkube/mailkube-go)](https://goreportcard.com/report/github.com/mailkube/mailkube-go)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-purple.svg)](CODE_OF_CONDUCT.md)
 
@@ -262,6 +261,15 @@ API error. Everything this package returns matches `ErrMailkube`.
 
 `APIError.ErrorName` stays a plain string so a name this release has never heard of is reported
 verbatim; the documented values are available as `ErrorName*` constants.
+
+Every failed request carries `APIError.RequestID`, the id the API returned for that exact call.
+Log it, and quote it when you report a failure to support — it is what lets us find your request:
+
+```go
+if errors.As(err, &apiErr) {
+	log.Printf("mailkube %s failed: %s (request %s)", apiErr.ErrorName, apiErr.Message, apiErr.RequestID)
+}
+```
 
 ## Logging
 

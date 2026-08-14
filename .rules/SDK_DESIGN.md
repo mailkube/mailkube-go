@@ -5,7 +5,7 @@ response model, paginated listing, or webhook event**.
 
 `SDK_CONTRACT.md` is the shared, language-neutral constitution: configuration, layering,
 naming, response-model rules, pagination, the error model, and the webhook contract, all of
-which every mailkube SDK implements identically. It is synced from `repo-template/common/`
+which every mailkube SDK implements identically. It is shared verbatim across every mailkube SDK
 and must not be edited here.
 
 **This file covers only what is specific to Go**, including the deliberate deviations the
@@ -176,9 +176,8 @@ Two guards worth keeping intact when you add an event:
   registration: registering `&SentData{}` under `email.delivered` type-checks, and any weaker
   assertion would pass while the struct came back empty.
 
-Coverage is **statement only**. Go's tooling reports statement coverage and has no branch
-metric, so this is a documented deviation from the python and node templates, which gate line
-**and** branch at 90%.
+Coverage is **statement only**. Go's tooling reports statement coverage and has no reliable
+branch metric, so there is nothing further to gate on.
 
 Examples carry `//go:build ignore`, which keeps them out of `go build ./...`, `go vet` and the
 coverage denominator. The `test` CI job compiles each one explicitly

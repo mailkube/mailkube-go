@@ -48,6 +48,16 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Module manifest check (publish readiness)
+        # A Go module is published straight from the tagged tree, so go.mod *is* the manifest and
+        # nothing validates it at release time — there is no `publish --dry-run` step to fail. An
+        # untidy or unverifiable go.mod would only surface once a consumer ran `go get`, and the
+        # proxy caches a bad version immutably. Check it on every PR instead.
+        run: |
+          go mod verify
+          go mod tidy -diff
+          go list -m
+
       - name: Compile the examples
         # Examples carry `//go:build ignore` so they stay out of the module, out of `go vet` and
         # out of the coverage denominator — which also means `go build ./...` never type-checks
