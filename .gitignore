@@ -1,0 +1,22 @@
+# Binaries & test artifacts
+*.exe
+*.test
+*.out
+
+# Build output
+/dist/
+/bin/
+
+# Coverage
+coverage.out
+coverage.txt
+
+# Go workspace
+go.work
+go.work.sum
+
+# Tooling caches
+.jscpd/
+
+# Secrets / local config
+.env

@@ -1,0 +1,41 @@
+# golangci-lint v2 config — the SOLID/KISS/docs/typing lint gates for this repo.
+# NOTE: requires golangci-lint v2.x (schema differs from v1). Verify the pinned action/binary
+# version in .github/workflows/ci.yml matches when bumping.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # `standard` enables errcheck, govet, ineffassign, staticcheck, unused (strict-typing gate #6).
+  default: standard
+  enable:
+    - gocyclo # KISS: cyclomatic complexity (#3)
+    - gocognit # KISS: cognitive complexity (#3)
+    - revive # Docs: exported-symbol comments (#4)
+    - unparam # SOLID/ISP: unused function parameters (#5)
+    - gocritic # SOLID: refactor / simplification smells (#5)
+  settings:
+    gocyclo:
+      min-complexity: 10
+    gocognit:
+      min-complexity: 20
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+  exclusions:
+    rules:
+      # Tests may skip doc comments, unused-param and complexity limits (mirrors python's tests/* ignores).
+      - path: _test\.go
+        linters:
+          - revive
+          - unparam
+          - gocyclo
+          - gocognit
+          - errcheck
+
+# Formatting gate (#7): `golangci-lint fmt` applies gofumpt; CI additionally hard-checks with gofumpt.
+formatters:
+  enable:
+    - gofumpt

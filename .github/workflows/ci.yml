@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call: # so release.yml can gate on the full CI
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.23", "1.24"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Lint (golangci-lint — complexity, docs, SOLID smells, staticcheck)
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1.6
+
+      - name: Format check (gofumpt)
+        run: |
+          go install mvdan.cc/gofumpt@v0.7.0
+          if [ -n "$(gofumpt -l .)" ]; then
+            echo "gofumpt: the following files need formatting:"
+            gofumpt -l .
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Compile the examples
+        # Examples carry `//go:build ignore` so they stay out of the module, out of `go vet` and
+        # out of the coverage denominator — which also means `go build ./...` never type-checks
+        # them. Compile each one explicitly so an API change cannot silently rot the docs. One
+        # file at a time, because they are all `package main` in one directory.
+        run: |
+          for example in examples/*.go; do
+            go build -o /dev/null "$example"
+          done
+
+      - name: Tests + coverage
+        run: go test ./... -race -covermode=atomic -coverprofile=coverage.out
+
+      - name: Coverage gate (90% line)
+        run: ./scripts/check-coverage.sh coverage.out
+
+  dry:
+    # Language-agnostic duplication (DRY) gate — identical across every mailkube repo.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - name: Copy-paste detection (jscpd)
+        run: npx --yes jscpd@4 --config .jscpd.json .
+
+  docs:
+    # Governance gate: every .rules/*.md must be indexed in AGENTS.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Rule-index sync check
+        run: ./scripts/check-rule-index.sh
