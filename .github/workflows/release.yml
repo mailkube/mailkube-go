@@ -21,7 +21,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      # A job-level block REPLACES the defaults rather than adding to them, so every scope
+      # semantic-release needs has to be listed. @semantic-release/github comments on the PRs and
+      # issues resolved by a release and adds the `released` label; without the two write scopes
+      # below those calls 403 and the run ends red *after* the tag and Release already exist.
       contents: write # push the tag, create the GitHub Release
+      issues: write # successComment on resolved issues
+      pull-requests: write # successComment + the `released` label on resolved PRs
     steps:
       - uses: actions/checkout@v7
         with:

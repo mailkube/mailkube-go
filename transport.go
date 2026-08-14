@@ -65,11 +65,25 @@ func fetch[T any](ctx context.Context, transport jsonTransport, spec requestSpec
 		return nil, err
 	}
 
+	if !isJSONObject(raw) {
+		return nil, fmt.Errorf("%w: expected a JSON object body", ErrUnexpectedResponse)
+	}
+
 	model := new(T)
 	if err := json.Unmarshal(raw, model); err != nil {
 		return nil, fmt.Errorf("%w: could not decode the response body: %w", ErrUnexpectedResponse, err)
 	}
 	return model, nil
+}
+
+// isJSONObject reports whether raw is a JSON object, without decoding it.
+//
+// json.Unmarshal alone is not enough of a guard: decoding the literal `null` into a struct leaves
+// the struct untouched and returns no error, so a 2xx body of `null` would hand the caller a
+// zero-valued model and call it success — the exact failure fetch exists to prevent. Every verb on
+// this API answers with an object, so anything else is a response the SDK cannot read.
+func isJSONObject(raw []byte) bool {
+	return bytes.HasPrefix(bytes.TrimLeft(raw, " \t\r\n"), []byte("{"))
 }
 
 // sendEmail performs the request and builds the accepted-send result.

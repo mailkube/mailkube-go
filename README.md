@@ -262,6 +262,15 @@ API error. Everything this package returns matches `ErrMailkube`.
 `APIError.ErrorName` stays a plain string so a name this release has never heard of is reported
 verbatim; the documented values are available as `ErrorName*` constants.
 
+Every failed request carries `APIError.RequestID`, the id the API returned for that exact call.
+Log it, and quote it when you report a failure to support — it is what lets us find your request:
+
+```go
+if errors.As(err, &apiErr) {
+	log.Printf("mailkube %s failed: %s (request %s)", apiErr.ErrorName, apiErr.Message, apiErr.RequestID)
+}
+```
+
 ## Logging
 
 Silent by default. Turn request and response logging on with a logger of your own, or with the

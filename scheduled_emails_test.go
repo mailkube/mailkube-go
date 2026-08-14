@@ -397,6 +397,11 @@ func TestAMalformedSuccessBodyIsNotReportedAsSuccess(t *testing.T) {
 		"empty":      "",
 		"non object": `["nope"]`,
 		"truncated":  `{"id":`,
+		// `null` is the one that decodes *successfully* into a zero-valued struct, so without an
+		// explicit object check the caller is handed a CanceledScheduledEmail with no id and told
+		// the cancel worked.
+		"null":   "null",
+		"scalar": "42",
 	} {
 		t.Run(name, func(t *testing.T) {
 			stub := &stubSequence{replies: []stubReply{{status: 200, payload: payload}}}
