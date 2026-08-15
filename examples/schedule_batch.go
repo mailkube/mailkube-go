@@ -37,7 +37,7 @@ func main() {
 
 	for i := 1; i <= 3; i++ {
 		email, err := client.Emails.Send(ctx, mailkube.SendEmailParams{
-			From:        "Acme <hello@yourdomain.com>",
+			From:        sender(),
 			To:          []string{os.Args[1]},
 			Subject:     fmt.Sprintf("Digest part %d", i),
 			HTML:        fmt.Sprintf("<p>Part %d of 3.</p>", i),
@@ -69,4 +69,14 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("canceled %d emails in batch %s\n", canceled.CanceledCount, canceled.BatchID)
+}
+
+// sender returns the verified address this account may send from. Override per
+// environment; the fallback is a placeholder and will be rejected until you set your own
+// domain.
+func sender() string {
+	if from := os.Getenv("MAILKUBE_FROM"); from != "" {
+		return from
+	}
+	return "Acme <hello@yourdomain.com>"
 }
