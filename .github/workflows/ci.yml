@@ -64,8 +64,25 @@ jobs:
         # them. Compile each one explicitly so an API change cannot silently rot the docs. One
         # file at a time, because they are all `package main` in one directory.
         run: |
+          n=$(ls examples/*.go | wc -l)
+          test "$n" -ge 13 || { echo "expected >=13 examples, found $n"; exit 1; }
           for example in examples/*.go; do
-            go build -o /dev/null "$example"
+            go build -o /dev/null "$example" || exit 1
+          done
+
+      - name: Lint the examples (golangci-lint)
+        # Same reason compiling them needs its own step: `//go:build ignore` keeps them out of the
+        # package, so the golangci-lint-action run above never sees them. Naming a file explicitly
+        # makes the toolchain ignore its build constraints, exactly as `go build file.go` does —
+        # so this needs NO `--build-tags ignore`, and must not have one: `ignore` is a live build
+        # tag inside the Go standard library, and setting it corrupts stdlib type-checking.
+        # A separate `run:` step because the action cannot express a loop — and the action does
+        # NOT put its binary on PATH, so this installs its own copy. Keep the version in step with
+        # the `golangci/golangci-lint-action` pin above.
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+          for example in examples/*.go; do
+            golangci-lint run "$example" || exit 1
           done
 
       - name: Tests + coverage
@@ -84,6 +101,13 @@ jobs:
           node-version: "20"
       - name: Copy-paste detection (jscpd)
         run: npx --yes jscpd@4 --config .jscpd.json .
+      # Examples are excluded from the run above and measured here instead, at a higher
+      # minTokens. Every example repeats the same scaffolding — import, read MAILKUBE_FROM,
+      # construct the client, handle the error — and deduping that into a shared helper is
+      # impossible anyway: each example is its own `package main` compiled on its own. 100 tokens
+      # is past that boilerplate (the cliff is at 90) while still catching a copy-pasted example.
+      - name: Copy-paste detection across examples (jscpd)
+        run: npx --yes jscpd@4 --config .jscpd.examples.json examples/
 
   docs:
     # Governance gate: every .rules/*.md must be indexed in AGENTS.md.

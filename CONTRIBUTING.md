@@ -33,10 +33,28 @@ go vet ./...                                          # vet
 go test ./... -race -covermode=atomic -coverprofile=coverage.out
 ./scripts/check-coverage.sh coverage.out             # 90% coverage gate
 npx --yes jscpd@4 --config .jscpd.json .             # duplication (DRY) gate, blocks at > 1%
+npx --yes jscpd@4 --config .jscpd.examples.json examples/  # the same gate over examples/
+for f in examples/*.go; do go build -o /dev/null "$f" || exit 1; done  # examples compile
+for f in examples/*.go; do golangci-lint run "$f" || exit 1; done      # and are linted
 ./scripts/check-rule-index.sh                        # every .rules/*.md indexed in AGENTS.md
 ```
 
 `pre-commit run --all-files` runs the format/lint/jscpd hooks in one shot.
+
+**`examples/` is compiled AND linted.** It is runnable documentation, which is the reason, not
+an exception to it: customers copy those files, and every defect the SDK certification run
+surfaced lived there because no gate looked at it. The `//go:build ignore` tag keeps examples out
+of the module (so uncovered example statements cannot drag the 90% coverage gate down), but
+naming a file explicitly makes the toolchain ignore its build constraints — which is how both
+loops above reach them. Never add `--build-tags ignore` to make that work: `ignore` is a live
+build tag inside the Go standard library, and setting it corrupts stdlib type-checking.
+
+Duplication is measured by a *separate* pass, `.jscpd.examples.json`, at `minTokens: 100` instead
+of 50. Every example repeats the same scaffolding — import, read `MAILKUBE_FROM`, construct the
+client, check the error — and it cannot be hoisted into a shared helper anyway, because each
+example is its own `package main` compiled on its own. 100 clears that scaffolding (measured: the
+cliff is at 90) and still fails on a copy-pasted example. Coverage excludes examples, because
+nothing in CI executes them: they need live credentials.
 
 ## Commit & PR conventions
 

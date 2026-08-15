@@ -5,10 +5,10 @@
 //	export MAILKUBE_API_KEY=mk_...
 //	go run examples/schedule_send.go you@example.com
 //
-// The `ignore` build tag keeps this file out of the module: `go build ./...`, `go vet ./...`
-// and golangci-lint would otherwise compile it, and `go test ./... -coverprofile` would count
-// its statements as uncovered. CI compiles each example explicitly instead, with
-// `go build -o /dev/null examples/<file>.go`.
+// The `ignore` build tag keeps this file out of the module, so `go test ./... -coverprofile`
+// does not count its statements as uncovered. CI compiles and lints each example explicitly
+// instead — `go build -o /dev/null examples/<file>.go` and `golangci-lint run
+// examples/<file>.go` — which makes the toolchain ignore the constraint.
 package main
 
 import (
