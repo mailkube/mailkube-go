@@ -23,6 +23,20 @@ repos:
         language: system
         types: [go]
         pass_filenames: false
+      # The hook above runs in package mode, so `//go:build ignore` hides every example from it.
+      # This one names each changed example explicitly, which is what makes the toolchain ignore
+      # the constraint — the same thing CI's per-file loop does. No `--build-tags ignore`:
+      # `ignore` is a live build tag in the Go standard library.
+      - id: golangci-lint-examples
+        name: golangci-lint (examples, per file)
+        entry: golangci-lint run
+        language: system
+        files: ^examples/.*\.go$
+      - id: examples-compile
+        name: examples compile (go build)
+        entry: go build -o /dev/null
+        language: system
+        files: ^examples/.*\.go$
 
   # Language-agnostic DRY gate — identical config in every mailkube repo.
   - repo: local
@@ -30,6 +44,11 @@ repos:
       - id: jscpd
         name: jscpd (copy-paste detector)
         entry: npx --yes jscpd@4 --config .jscpd.json .
+        language: system
+        pass_filenames: false
+      - id: jscpd-examples
+        name: jscpd (examples, higher threshold)
+        entry: npx --yes jscpd@4 --config .jscpd.examples.json examples/
         language: system
         pass_filenames: false
 

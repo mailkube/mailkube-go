@@ -5,10 +5,10 @@
 //	export MAILKUBE_API_KEY=mk_...
 //	go run examples/schedule_send.go you@example.com
 //
-// The `ignore` build tag keeps this file out of the module: `go build ./...`, `go vet ./...`
-// and golangci-lint would otherwise compile it, and `go test ./... -coverprofile` would count
-// its statements as uncovered. CI compiles each example explicitly instead, with
-// `go build -o /dev/null examples/<file>.go`.
+// The `ignore` build tag keeps this file out of the module, so `go test ./... -coverprofile`
+// does not count its statements as uncovered. CI compiles and lints each example explicitly
+// instead — `go build -o /dev/null examples/<file>.go` and `golangci-lint run
+// examples/<file>.go` — which makes the toolchain ignore the constraint.
 package main
 
 import (
@@ -37,7 +37,7 @@ func main() {
 	due := time.Now().Add(2 * time.Hour)
 
 	email, err := client.Emails.Send(ctx, mailkube.SendEmailParams{
-		From:    "Acme <hello@yourdomain.com>",
+		From:    sender(),
 		To:      []string{os.Args[1]},
 		Subject: "Your weekly digest",
 		HTML:    "<p>Scheduled from mailkube-go.</p>",
@@ -64,4 +64,14 @@ func main() {
 
 	fmt.Printf("scheduled %s for %s (status %s)\n", email.ID, email.ScheduledAt, email.Status)
 	fmt.Printf("manage it with: go run examples/manage_scheduled_emails.go %s\n", email.ID)
+}
+
+// sender returns the verified address this account may send from. Override per
+// environment; the fallback is a placeholder and will be rejected until you set your own
+// domain.
+func sender() string {
+	if from := os.Getenv("MAILKUBE_FROM"); from != "" {
+		return from
+	}
+	return "Acme <hello@yourdomain.com>"
 }

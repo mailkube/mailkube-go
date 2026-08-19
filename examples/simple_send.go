@@ -6,10 +6,12 @@
 //	go run examples/simple_send.go you@example.com
 //
 // The `ignore` build tag is load-bearing, not decoration. Without it this file joins the
-// module: `go build ./...`, `go vet ./...` and golangci-lint would all compile it, and — worse
-// — `go test ./... -coverprofile` would count its statements as uncovered and drag the 90%
-// gate down for code that exists to be read and run, not shipped. Examples are excluded from
-// the duplication gate for the same reason.
+// module, and `go test ./... -coverprofile` would count its statements as uncovered, dragging
+// the 90% gate down over code nothing in CI executes. It does NOT mean the file is unchecked:
+// CI compiles and lints every example by naming it explicitly, which makes the toolchain
+// ignore the constraint — `go build -o /dev/null examples/<file>.go` and
+// `golangci-lint run examples/<file>.go`. Duplication is measured separately, over examples/
+// only, at a higher minTokens (see .jscpd.examples.json).
 package main
 
 import (
@@ -36,7 +38,7 @@ func main() {
 
 	ctx := context.Background()
 	email, err := client.Emails.Send(ctx, mailkube.SendEmailParams{
-		From:    "Acme <hello@yourdomain.com>",
+		From:    sender(),
 		To:      []string{os.Args[1]},
 		Subject: "Hello from mailkube-go",
 		HTML:    "<p>It works!</p>",
@@ -58,4 +60,14 @@ func main() {
 	}
 
 	fmt.Printf("accepted %s (message-id %s)\n", email.ID, email.MessageID)
+}
+
+// sender returns the verified address this account may send from. Override per
+// environment; the fallback is a placeholder and will be rejected until you set your own
+// domain.
+func sender() string {
+	if from := os.Getenv("MAILKUBE_FROM"); from != "" {
+		return from
+	}
+	return "Acme <hello@yourdomain.com>"
 }
