@@ -312,3 +312,30 @@ func TestParseEventLeavesTheDeliveryHeadersEmpty(t *testing.T) {
 		t.Error("ParseEvent has no headers to read: ID and Timestamp must stay empty")
 	}
 }
+
+// TestEngagementWithoutIPOrUserAgent proves a released client survives the payload a current
+// server sends. The platform stopped recording the recipient's address and client, so both keys
+// are absent from the wire and must decode to the zero value rather than failing the parse.
+func TestEngagementWithoutIPOrUserAgent(t *testing.T) {
+	body := `{"type":"email.opened","created_at":"2026-08-13T09:00:08Z","data":{` +
+		messageContext + `,"open":{"timestamp":"2026-08-13T09:00:08Z"}}}`
+
+	event, err := mailkube.ParseEvent([]byte(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	data, ok := event.Data.(*mailkube.OpenedData)
+	if !ok {
+		t.Fatalf("data is %T, want *OpenedData", event.Data)
+	}
+	if data.Open.IPAddress != "" {
+		t.Errorf("IPAddress = %q, want empty", data.Open.IPAddress)
+	}
+	if data.Open.UserAgent != "" {
+		t.Errorf("UserAgent = %q, want empty", data.Open.UserAgent)
+	}
+	if data.Open.Timestamp != "2026-08-13T09:00:08Z" {
+		t.Errorf("Timestamp = %q", data.Open.Timestamp)
+	}
+}

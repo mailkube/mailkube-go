@@ -116,6 +116,11 @@ type FailureContext struct {
 }
 
 // EngagementContext is an open interaction. Its nested keys are camelCase on the wire.
+//
+// Deprecated fields: IPAddress and UserAgent are no longer recorded by the platform, so a current
+// server omits both keys and they decode to the zero value. They are kept rather than removed so
+// that code written against an earlier version still compiles, and so an event replayed from an
+// archive still decodes.
 type EngagementContext struct {
 	IPAddress string `json:"ipAddress"`
 	UserAgent string `json:"userAgent"`
