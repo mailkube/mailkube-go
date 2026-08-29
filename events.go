@@ -115,16 +115,19 @@ type FailureContext struct {
 	Reason string `json:"reason"`
 }
 
-// EngagementContext is an open interaction. Its nested keys are camelCase on the wire.
+// EngagementContext is an open interaction. Its nested connection keys are camelCase on the wire.
 //
-// Deprecated fields: IPAddress and UserAgent are no longer recorded by the platform, so a current
-// server omits both keys and they decode to the zero value. They are kept rather than removed so
-// that code written against an earlier version still compiles, and so an event replayed from an
-// archive still decodes.
+// IPAddress, Country and UserAgent are recorded only where the sending domain elected them, which
+// is off by default, so on most events they decode to the zero value. They carry omitempty so that
+// re-marshalling an event whose sender declined them does not put the keys back on the wire as
+// empty strings: a forwarder or an archiver must not manufacture data the sender chose not to
+// record. Go cannot distinguish "not elected" from "elected but blank" on these fields; the
+// Python, Ruby and Java clients can.
 type EngagementContext struct {
-	IPAddress string `json:"ipAddress"`
-	UserAgent string `json:"userAgent"`
+	IPAddress string `json:"ipAddress,omitempty"`
+	UserAgent string `json:"userAgent,omitempty"`
 	Timestamp string `json:"timestamp"`
+	Country   string `json:"country,omitempty"`
 }
 
 // ClickContext is a click interaction: an open plus the link that was followed.
