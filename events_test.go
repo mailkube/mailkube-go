@@ -1,6 +1,7 @@
 package mailkube_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -310,5 +311,82 @@ func TestParseEventLeavesTheDeliveryHeadersEmpty(t *testing.T) {
 	}
 	if event.ID != "" || event.Timestamp != "" {
 		t.Error("ParseEvent has no headers to read: ID and Timestamp must stay empty")
+	}
+}
+
+// TestEngagementWithoutIPOrUserAgent proves a released client survives the common payload. The
+// three connection fields are elected per sending domain and off by default, so their keys are
+// absent from most events and must decode to the zero value rather than failing the parse.
+func TestEngagementWithoutIPOrUserAgent(t *testing.T) {
+	body := `{"type":"email.opened","created_at":"2026-08-13T09:00:08Z","data":{` +
+		messageContext + `,"open":{"timestamp":"2026-08-13T09:00:08Z"}}}`
+
+	event, err := mailkube.ParseEvent([]byte(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	data, ok := event.Data.(*mailkube.OpenedData)
+	if !ok {
+		t.Fatalf("data is %T, want *OpenedData", event.Data)
+	}
+	if data.Open.IPAddress != "" {
+		t.Errorf("IPAddress = %q, want empty", data.Open.IPAddress)
+	}
+	if data.Open.UserAgent != "" {
+		t.Errorf("UserAgent = %q, want empty", data.Open.UserAgent)
+	}
+	if data.Open.Timestamp != "2026-08-13T09:00:08Z" {
+		t.Errorf("Timestamp = %q", data.Open.Timestamp)
+	}
+}
+
+// TestEngagementRoundTripOmitsUnelectedKeys proves a forwarder cannot manufacture data the sender
+// declined to record. Without omitempty the zero values would be re-marshalled as empty strings,
+// putting ipAddress and userAgent back on the wire for a domain that never elected them.
+func TestEngagementRoundTripOmitsUnelectedKeys(t *testing.T) {
+	body := `{"type":"email.opened","created_at":"2026-08-13T09:00:08Z","data":{` +
+		messageContext + `,"open":{"timestamp":"2026-08-13T09:00:08Z"}}}`
+
+	event, err := mailkube.ParseEvent([]byte(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	data, ok := event.Data.(*mailkube.OpenedData)
+	if !ok {
+		t.Fatalf("data is %T, want *OpenedData", event.Data)
+	}
+
+	out, err := json.Marshal(data.Open)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, key := range []string{"ipAddress", "userAgent", "country"} {
+		if strings.Contains(string(out), key) {
+			t.Errorf("re-marshalled block contains %q: %s", key, out)
+		}
+	}
+}
+
+// TestElectedCountryDecodes covers the field a sender gets alongside the address.
+func TestElectedCountryDecodes(t *testing.T) {
+	body := `{"type":"email.opened","created_at":"2026-08-13T09:00:08Z","data":{` +
+		messageContext + `,"open":{"timestamp":"2026-08-13T09:00:08Z",` +
+		`"ipAddress":"203.0.113.7","country":"FR"}}}`
+
+	event, err := mailkube.ParseEvent([]byte(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	data, ok := event.Data.(*mailkube.OpenedData)
+	if !ok {
+		t.Fatalf("data is %T, want *OpenedData", event.Data)
+	}
+	if data.Open.Country != "FR" {
+		t.Errorf("Country = %q, want FR", data.Open.Country)
+	}
+	// Elected separately, so it stays zero even though the address was recorded.
+	if data.Open.UserAgent != "" {
+		t.Errorf("UserAgent = %q, want empty", data.Open.UserAgent)
 	}
 }

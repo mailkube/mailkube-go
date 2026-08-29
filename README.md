@@ -242,6 +242,14 @@ Every `email.*` payload embeds `MessageContext` (`EmailID`, `CreatedAt`, `Domain
 send them as `null`, which is not the same as empty. `Event.Raw` always holds the verbatim body,
 so a receiver that forwards events keeps fields this SDK version predates.
 
+On the `Open` and `Click` blocks, `IPAddress`, `Country` and `UserAgent` are recorded only where the
+sending domain has elected them, and both settings are off by default. The server omits the key
+rather than sending an empty value, so all three read as `""` when nothing was recorded. Go does not
+tell that apart from an elected but blank value; a receiver that needs the difference reads
+`Event.Raw`. All three carry `omitempty`, so re-marshalling an event never puts the keys back on the
+wire for a sender that declined them. `Country` can be empty even where the address was recorded,
+because it is resolved at the edge and is not available on every path.
+
 ## Errors
 
 Branch on the category with `errors.Is`, and reach the envelope with `errors.As`:
