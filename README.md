@@ -5,7 +5,9 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-purple.svg)](CODE_OF_CONDUCT.md)
 
-The official Go SDK for mailkube.
+The official Go SDK for [mailkube](https://mailkube.com).
+
+Full product and API documentation: [docs.mailkube.com/sdks/go](https://docs.mailkube.com/sdks/go).
 
 ## Install
 
