@@ -98,6 +98,8 @@ type Client struct {
 	Emails *EmailsService
 	// ScheduledEmails is the scheduled-emails namespace, including its batch operations.
 	ScheduledEmails *ScheduledEmailsService
+	// Credential is the namespace for the API key this client authenticates with.
+	Credential *CredentialService
 
 	apiKey          string
 	baseURL         string
@@ -140,6 +142,7 @@ func New(opts ...Option) (*Client, error) {
 
 	c.Emails = &EmailsService{transport: c}
 	c.ScheduledEmails = newScheduledEmailsService(c)
+	c.Credential = &CredentialService{transport: c}
 	return c, nil
 }
 

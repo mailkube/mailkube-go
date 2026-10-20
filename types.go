@@ -262,3 +262,74 @@ type ScheduledEmailBatchUpdateParams struct {
 	// ScheduledAt is the new due time applied to every pending email in the batch. Required.
 	ScheduledAt time.Time
 }
+
+// APIKey is the API key the client authenticates with, as it describes itself.
+//
+// Plan and quota figures can be up to 30 seconds old.
+type APIKey struct {
+	// Object is the resource discriminator, always "api_key".
+	Object string `json:"object"`
+	// KeyID is the key's public identifier.
+	KeyID string `json:"key_id"`
+	// Name is the key's name.
+	Name string `json:"name"`
+	// Description is the key's description, empty when it has none.
+	Description string `json:"description"`
+	// CreatedAt is when the key was created.
+	CreatedAt string `json:"created_at"`
+	// LastAuthAt is the key's last successful authentication, this call included.
+	LastAuthAt string `json:"last_auth_at"`
+	// AllowedSourceIPs are the networks the key may be used from, in CIDR notation. Empty means
+	// any address.
+	AllowedSourceIPs []string `json:"allowed_source_ips"`
+	// Domain is the sending domain the key belongs to.
+	Domain APIKeyDomain `json:"domain"`
+	// Organization is the organization owning the domain.
+	Organization APIKeyOrganization `json:"organization"`
+	// Plan is the organization's plan, nil when it has no subscription. A pointer, so "no
+	// subscription" stays distinguishable from a plan with empty fields.
+	Plan *APIKeyPlan `json:"plan"`
+}
+
+// APIKeyDomain is the sending domain an API key belongs to.
+type APIKeyDomain struct {
+	// Name is the domain name, for example "example.com".
+	Name string `json:"name"`
+}
+
+// APIKeyOrganization is the organization owning an API key's domain.
+type APIKeyOrganization struct {
+	// Name is the organization's display name.
+	Name string `json:"name"`
+	// Alias is the organization's short alias.
+	Alias string `json:"alias"`
+}
+
+// APIKeyPlan is the organization's plan, its status and its send quotas.
+type APIKeyPlan struct {
+	// Code is the plan's UUID.
+	Code string `json:"code"`
+	// Name is the plan's name.
+	Name string `json:"name"`
+	// Status is the subscription status, for example "active". A plain string, never a closed
+	// set.
+	Status string `json:"status"`
+	// Quotas are the send quotas the plan carries. A plan without a daily limit lists the
+	// monthly quota only: an absent quota is a missing limit, never a limit of zero.
+	Quotas []APIKeyQuota `json:"quotas"`
+}
+
+// APIKeyQuota is one send quota of the plan: its limit and what the current period has used.
+type APIKeyQuota struct {
+	// Name says which quota, for example "emails_per_day" or "emails_per_month". A plain
+	// string, never a closed set.
+	Name string `json:"name"`
+	// Limit is the plan's limit for the period, in recipients.
+	Limit int `json:"limit"`
+	// Used is the recipients sent to so far in the period.
+	Used int `json:"used"`
+	// Remaining is the recipients left in the period.
+	Remaining int `json:"remaining"`
+	// Period is the UTC period the figures count: a day ("2026-10-19") or a month ("2026-10").
+	Period string `json:"period"`
+}
