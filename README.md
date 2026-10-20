@@ -59,9 +59,14 @@ func main() {
 | Timeout | `WithTimeout` | | 30s |
 | HTTP client | `WithHTTPClient` | | `&http.Client{Timeout: ...}` |
 | Logger | `WithLogger` | `MAILKUBE_LOG` | silent |
+| User-Agent suffix | `WithUserAgentSuffix` | | none |
 
 Create one client and reuse it: it is safe for concurrent use from any number of goroutines.
 Pass your own `*http.Client` to add a proxy, custom transport or instrumentation.
+
+If you build on top of this SDK, such as a CLI, an internal service or a framework integration,
+pass your own `name/version` to `WithUserAgentSuffix`. It is appended after the SDK's own token,
+so both are visible: `mailkube-go/<version> my-cli/1.0.0`. A value containing a newline is ignored.
 
 There are deliberately **no built-in retries**. An error matching `ErrRateLimit` carries
 `RetryAfter` and one matching `ErrServer` is safe to retry with backoff, so the calling
