@@ -161,6 +161,33 @@ canceled, err := client.ScheduledEmails.Batches.Cancel(ctx, "digest-2026-08")
 log.Println(canceled.CanceledCount) // an unknown batch is a no-op reporting 0, not an error
 ```
 
+## Your API key
+
+`client.Credential.Info` describes the key the client authenticates with: its domain,
+organization, source-IP allowlist, plan and send-quota usage.
+
+```go
+key, err := client.Credential.Info(ctx)
+if err != nil {
+	return err
+}
+log.Println(key.KeyID, key.Domain.Name, key.Organization.Alias)
+
+if key.Plan != nil {
+	for _, quota := range key.Plan.Quotas {
+		log.Println(quota.Name, quota.Used, quota.Limit, quota.Period)
+	}
+}
+```
+
+The key is checked exactly as a send checks it, so a key that cannot send fails with
+`ErrAuthentication` (`invalid_api_key`): calling `Info` is how to verify a key. The call counts as
+a use of the key, and plan and quota figures can be up to 30 seconds old. `Plan` is nil when the
+organization has no subscription, and a plan without a daily limit lists `emails_per_month` only.
+`Remaining` counts recipients, not messages.
+
+The client keeps the key it was built with. To use another key, build another client.
+
 ## Webhooks
 
 `WebhookHandler` is an `http.Handler`, so it mounts anywhere. **Mount it on GET and POST.**
@@ -303,10 +330,14 @@ with `go run examples/simple_send.go`:
 
 - [`simple_send.go`](examples/simple_send.go) — the smallest useful program
 - [`schedule_send.go`](examples/schedule_send.go) — schedule a send, then read the ack
+- [`list_scheduled_emails.go`](examples/list_scheduled_emails.go) — one page for the metadata,
+  then the lazy walk, read-only
 - [`manage_scheduled_emails.go`](examples/manage_scheduled_emails.go) — list, paginate,
   retrieve, reschedule and cancel
 - [`schedule_batch.go`](examples/schedule_batch.go) — schedule a batch, then move or cancel it
   as a unit
+- [`credential_info.go`](examples/credential_info.go) — describe the calling key, its plan and
+  quota usage
 - [`webhook_receiver_http.go`](examples/webhook_receiver_http.go) — a complete receiver:
   handshake, verify, deduplicate, acknowledge fast
 

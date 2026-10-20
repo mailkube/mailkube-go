@@ -22,6 +22,10 @@
 //	_, err = client.ScheduledEmails.Cancel(ctx, email.ID)
 //	_, err = client.ScheduledEmails.Batches.Cancel(ctx, "launch")
 //
+// The client's own API key describes itself, which is also how to verify a key:
+//
+//	key, err := client.Credential.Info(ctx) // ErrAuthentication for a key that cannot send
+//
 // Webhooks need no client. Mount WebhookHandler on GET and POST: the GET is the registration
 // handshake the platform probes with before it will save your endpoint, and skipping it means
 // no event is ever delivered.
